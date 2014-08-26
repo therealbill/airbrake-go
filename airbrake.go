@@ -146,6 +146,43 @@ func Error(e error, request *http.Request) error {
 	return nil
 }
 
+type ExtendedNotification struct {
+	ErrorClass string
+	ErrorName  string
+	Error      error
+}
+
+func ExtendedError(notice ExtendedNotification, req *http.Request) error {
+	once.Do(initChannel)
+	if ApiKey == "" {
+		return apiKeyMissing
+	}
+	log.Printf("%+v", notice)
+	params := map[string]interface{}{
+		"Class":       notice.ErrorClass,
+		"Error":       notice.Error,
+		"ApiKey":      ApiKey,
+		"ErrorName":   notice.Error.Error(),
+		"Environment": Environment,
+	}
+	if params["Class"] == "" {
+		params["Class"] = "Panic"
+	}
+
+	pwd, err := os.Getwd()
+	if err == nil {
+		params["Pwd"] = pwd
+	}
+
+	hostname, err := os.Hostname()
+	if err == nil {
+		params["Hostname"] = hostname
+	}
+	params["Backtrace"] = stacktrace(3)
+	post(params)
+	return nil
+}
+
 func Notify(e error) error {
 	once.Do(initChannel)
 
